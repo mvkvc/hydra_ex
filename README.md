@@ -1,6 +1,6 @@
 # hydra_ex
 
-Simplified port of Python's [Hydra](https://github.com/facebookresearch/hydra) package to Elixir.
+Elixir library for configuration management based on Python's [Hydra](https://github.com/facebookresearch/hydra) package.
 
 ## Installation
 
