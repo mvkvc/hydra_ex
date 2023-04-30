@@ -1,6 +1,10 @@
 # hydra_ex
 
-Elixir library for configuration management based on Python's [Hydra](https://github.com/facebookresearch/hydra) package.
+Simplified version of Python's [Hydra](https://github.com/facebookresearch/hydra) package for Elixir.
+
+## Examples
+
+Comment and uncomment the necessary `@config_folder` line in the `lib/hydra.ex` file and execute the `run` function in the IEX shell.
 
 ## Installation
 

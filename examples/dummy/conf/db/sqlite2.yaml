@@ -1,0 +1,6 @@
+base: sqlite1
+
+version: 2
+pragma_synchronous: full
+pragma_temp_store: memory
+pragma_mmap_size: 20000000000

@@ -1,105 +1,74 @@
 defmodule Hydra do
-  @doc """
-  The goal of hydra will be to read your configs an create a structured hierarchy that is built based on your selection. My assumption is that most training scripts will take place in a .exs or Livebook file, so the output should be config dict that will be used for training etc..
-  """
-  @config_folder "examples/yaml/conf"
+  # @config_folder "examples/hydra/conf"
+  @config_folder "examples/dummy/conf"
   @config_name "config"
 
-  def run do
+  def run() do
     load_config(@config_folder, @config_name)
   end
 
   def load_yaml(folder, filename, ext \\ ".yaml") do
     Application.start(:yamerl)
     path = folder <> "/" <> filename <> ext
-    IO.inspect(path)
 
-    base = :yamerl_constr.file(path)
+    path
+    |> :yamerl_constr.file()
+    |> List.first()
   end
 
-  def load_config(folder, filename) do
+  def load_config(folder, filename, runtime \\ %{}) do
     base =
       load_yaml(folder, filename)
-      |> List.first()
       |> convert()
 
-    {defaults, overrides} = Map.pop!(base, 'defaults')
-    # overrides |> IO.inspect(label: "overrides")
-    # defaults |> IO.inspect(label: "defaults")
-
-    default_lookup = Map.to_list(defaults)
-
-    IO.inspect(default_lookup, label: "default lookup")
+    {defaults, overrides} = Map.pop(base, 'defaults')
+    {runtime_defaults, runtime_overrides} = Map.pop(runtime, 'defaults')
 
     defaults =
-      Enum.reduce(default_lookup, %{}, fn x, acc ->
-        key = elem(x, 0) |> to_string()
-        value = elem(x, 1) |> to_string()
-        path = key <> "/" <> value
+      if runtime_defaults do
+        recur_map_merge(defaults, runtime_defaults)
+      else
+        defaults
+      end
 
-        {key, value, path} |> IO.inspect(label: "defaults values")
+    params =
+      Enum.reduce(Map.to_list(defaults), %{}, fn x, acc ->
+        key = elem(x, 0)
+        value = elem(x, 1)
 
-        # result =
-        #   load_yaml(folder, path)
-        #   |> List.first()
-        #   |> convert()
-
-        # IO.inspect({key, value, result}, label: "input to base builder")
-        IO.inspect({@config_folder, key, value}, label: "bb folder, key, val")
-        result = base_builder(@config_folder, key, value)
-
-        # IO.inspect()
-        Map.put(acc, to_charlist(key), result)
+        result = base_builder(folder, key, value)
+        Map.put(acc, key, result)
       end)
 
-    # defaults
-    {defaults, overrides} |> IO.inspect(label: "defaults, overrides")
-    recursive_merge(defaults, overrides)
+    params
+    |> recur_map_merge(overrides)
+    |> recur_map_merge(runtime_overrides)
   end
 
-  def base_builder(root, folder, file) do
-    base_builder(root, folder, file, [])
+  def base_builder(root, folder, file, params \\ [])
+
+  def base_builder(_root, _folder, nil, params) do
+    Enum.reduce(params, %{}, fn x, acc ->
+      recur_map_merge(acc, x)
+    end)
   end
 
   def base_builder(root, folder, file, params) do
-    {root, folder, file} |> IO.inspect(label: "bb inputs")
-
-    file =
-      load_yaml(root <> "/" <> folder, file)
-      |> List.first()
+    contents =
+      load_yaml(root <> "/" <> to_string(folder), to_string(file))
       |> convert()
 
-    file |> IO.inspect(label: "base_builders file")
+    {new_file, contents} = Map.pop(contents, 'base')
 
-    result =
-      if file['base'] do
-        new_file = file['base'] |> to_string()
-        {_, file} = Map.pop!(file, 'base')
-        base_builder(root, folder, new_file, params ++ [file])
-      else
-        params = params ++ [file]
+    new_params = [contents] ++ params
 
-        Enum.reduce(params, %{}, fn x, acc ->
-          params ++ [file]
-          IO.inspect({params, acc, x}, label: "resumts merger inspect")
-          recursive_merge(acc, x)
-        end)
-      end
-
-    result |> IO.inspect(label: "base_builders result")
-    result
+    base_builder(root, folder, new_file, new_params)
   end
 
-  # def build_maps(maps) do
-  #   Enum.reduce(maps, %{}, fn x, acc ->
-  #     recursive_merge(acc, x)
-  #   end)
-  # end
-
-  def recursive_merge(x, y) do
+  def recur_map_merge(x, y) do
     Map.merge(x, y, fn _k, v1, v2 ->
       if is_map(v1) and is_map(v2) do
-        recursive_merge(v1, v2)
+        recur_map_merge(v1, v2)
       else
         v2
       end
@@ -107,24 +76,17 @@ defmodule Hydra do
   end
 
   def convert(collection) do
-    IO.inspect(collection, label: "CONVERT CALLED")
-
     result =
       Enum.reduce(collection, %{}, fn x, acc ->
-        IO.inspect(x, label: "x in func")
-
         case x do
           [a] when is_tuple(a) ->
-            IO.inspect(a, label: "is_tuple in list")
             Map.put(acc, elem(a, 0), elem(a, 1))
 
           {a, b} when (is_list(b) and not is_binary(b)) or is_tuple(b) ->
-            IO.inspect(b, label: "is_list but not binary")
             b = if is_charlist(b), do: b, else: convert(b)
             Map.put(acc, a, b)
 
           {a, b} ->
-            IO.inspect(b, label: "is_tuple")
             Map.put(acc, a, b)
 
           [a] when is_list(a) and length(a) == 1 ->
@@ -132,11 +94,9 @@ defmodule Hydra do
 
           _ ->
             acc
-            # IO.inspect(x, label: "no match")
         end
       end)
 
-    IO.inspect(result)
     result
   end
 
@@ -148,7 +108,4 @@ defmodule Hydra do
       end
     end)
   end
-
-  # def overrides(config, overrides) do
-  # end
 end

@@ -1,0 +1,6 @@
+base: sqlite2
+
+version: 3
+pragma_synchronous: normal
+pragma_mmap_size: 30000000000
+pragma_page_size: 4000
